@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charity Waste Ledger</title>
+    <style>
+        :root {
+            --bg: #f5f5f5;
+            --card: #ffffff;
+            --text: #333333;
+            --accent-in: #2ecc71;
+            --accent-out: #e74c3c;
+            --accent-neutral: #3498db;
+            --sold: #27ae60;
+            --recycled: #f39c12;
+            --binned: #95a5a6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.4;
+            padding-bottom: 2rem;
+        }
+        header {
+            background: var(--card);
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        h1 { font-size: 1.25rem; text-align: center; margin-bottom: 0.75rem; }
+        .mode-toggle {
+            display: flex;
+            gap: 0.5rem;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .mode-btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: #ecf0f1;
+            color: #7f8c8d;
+            transition: all 0.2s;
+        }
+        .mode-btn.active-in {
+            background: var(--accent-in);
+            color: white;
+            border-color: var(--accent-in);
+        }
+        .mode-btn.active-out {
+            background: var(--accent-out);
+            color: white;
+            border-color: var(--accent-out);
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .form-group { margin-bottom: 1rem; }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.35rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        select, input[type="number"], input[type="text"], input[type="date"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--accent-neutral);
+        }
+        .route-btns {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.5rem;
+        }
+        .route-btn {
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+        }
+        .route-btn.selected-sold { border-color: var(--sold); background: #e8f8f5; color: var(--sold); }
+        .route-btn.selected-recycled { border-color: var(--recycled); background: #fef5e7; color: var(--recycled); }
+        .route-btn.selected-binned { border-color: var(--binned); background: #f4f6f7; color: var(--binned); }
+        .submit-btn {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: white;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+        .submit-in { background: var(--accent-in); }
+        .submit-out { background: var(--accent-out); }
+        .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .stat-box {
+            background: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-neutral);
+        }
+        .stat-label {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .carbon-box {
+            background: #e8f8f5;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 0.75rem;
+        }
+        .carbon-box h3 {
+            font-size: 0.85rem;
+            color: #27ae60;
+            margin-bottom: 0.25rem;
+        }
+        .carbon-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e8449;
+        }
+        
+        .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid #eee;
+        }
+        .history-item:last-child { border-bottom: none; }
+        .history-meta { font-size: 0.85rem; color: #666; }
+        .history-weight { font-weight: 700; }
+        .badge {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .badge-in { background: #d5f5e3; color: #27ae60; }
+        .badge-sold { background: #d5f5e3; color: #27ae60; }
+        .badge-recycled { background: #fdebd0; color: #d68910; }
+        .badge-binned { background: #eaeded; color: #7f8c8d; }
+        
+        .export-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: #34495e;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>♻️ Waste Ledger</h1>
+    <div class="mode-toggle">
+        <button class="mode-btn active-in" onclick="setMode('in')">IN</button>
+        <button class="mode-btn" onclick="setMode('out')">OUT</button>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- Dashboard -->
+    <div class="card">
+        <div id="dash-in">
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="in-today-count">0</div>
+                    <div class="stat-label">Items Today</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="in-today-kg">0</div>
+                    <div class="stat-label">Kg Today</div>
+                </div>
+            </div>
+            <div class="carbon-box">
+                <h3>🌍 Landfill Diversion (All Time)</h3>
+                <div class="carbon-value" id="diversion-total">0 kg CO₂e</div>
+            </div>
+        </div>
+        <div id="dash-out" class="hidden">
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="out-today-count">0</div>
+                    <div class="stat-label">Out Today</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="out-today-kg">0</div>
+                    <div class="stat-label">Kg Out Today</div>
+                </div>
+            </div>
+            <div class="stats-grid" style="margin-top:0.75rem;">
+                <div class="stat-box" style="background:#e8f8f5;">
+                    <div class="stat-value" style="color:var(--sold); font-size:1.1rem;" id="sold-today">0</div>
+                    <div class="stat-label">Sold</div>
+                </div>
+                <div class="stat-box" style="background:#fef5e7;">
+                    <div class="stat-value" style="color:var(--recycled); font-size:1.1rem;" id="recycled-today">0</div>
+                    <div class="stat-label">Recycled</div>
+                </div>
+                <div class="stat-box" style="background:#f4f6f7;">
+                    <div class="stat-value" style="color:var(--binned); font-size:1.1rem;" id="binned-today">0</div>
+                    <div class="stat-label">Binned</div>
+                </div>
+            </div>
+            <div class="carbon-box" style="background:#eaf2f8;">
+                <h3 style="color:#2980b9;">🏭 Avoided Manufacturing (All Time)</h3>
+                <div class="carbon-value" style="color:#2471a3;" id="avoided-total">0 kg CO₂e</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Entry Form -->
+    <div class="card">
+        <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="entry-date">
+        </div>
+        
+        <div class="form-group">
+            <label>Category</label>
+            <select id="main-cat" onchange="updateSubcats()">
+                <option value="">-- Select --</option>
+                <option value="furniture">Furniture</option>
+                <option value="clothes">Clothes</option>
+                <option value="books">Books</option>
+                <option value="bric">Bric-a-brac</option>
+                <option value="electrical">Electricals</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="furniture-picker">
+            <label>Furniture Type</label>
+            <select id="furniture-type" onchange="autoWeight()">
+                <option value="">-- Select --</option>
+                <optgroup label="Armchair">
+                    <option value="Armchair|Standard|25">Standard (25kg)</option>
+                    <option value="Armchair|Recliner|45">Recliner (45kg)</option>
+                </optgroup>
+                <optgroup label="Sofa">
+                    <option value="Sofa|2 seater|35">2 seater (35kg)</option>
+                    <option value="Sofa|3 seater|45">3 seater (45kg)</option>
+                    <option value="Sofa|Recliner|60">Recliner (60kg)</option>
+                </optgroup>
+                <optgroup label="Wardrobe">
+                    <option value="Wardrobe|Small|30">Small (30kg)</option>
+                    <option value="Wardrobe|Large|55">Large (55kg)</option>
+                </optgroup>
+                <optgroup label="Chest of Drawers">
+                    <option value="Chest of Drawers|Small|20">Small (20kg)</option>
+                    <option value="Chest of Drawers|Large|35">Large (35kg)</option>
+                </optgroup>
+                <optgroup label="Unit">
+                    <option value="Unit|Small|35">Small (35kg)</option>
+                    <option value="Unit|Large|50">Large (50kg)</option>
+                </optgroup>
+                <optgroup label="Table">
+                    <option value="Table|Small|10">Small (10kg)</option>
+                    <option value="Table|Medium|25">Medium (25kg)</option>
+                    <option value="Table|Large|40">Large (40kg)</option>
+                </optgroup>
+                <optgroup label="Dining Chair">
+                    <option value="Dining Chair||6">Standard (6kg)</option>
+                </optgroup>
+                <optgroup label="Office Chair">
+                    <option value="Office Chair||10">Standard (10kg)</option>
+                </optgroup>
+                <optgroup label="Mattress">
+                    <option value="Mattress|Single|13">Single (13kg)</option>
+                    <option value="Mattress|Double|20">Double (20kg)</option>
+                    <option value="Mattress|King|35">King (35kg)</option>
+                </optgroup>
+                <optgroup label="Bedframe">
+                    <option value="Bedframe|Single|21">Single (21kg)</option>
+                    <option value="Bedframe|Double|35">Double (35kg)</option>
+                    <option value="Bedframe|King|45">King (45kg)</option>
+                </optgroup>
+                <optgroup label="Shelves">
+                    <option value="Shelves|Small|12">Small (12kg)</option>
+                    <option value="Shelves|Large|20">Large (20kg)</option>
+                </optgroup>
+                <optgroup label="Misc">
+                    <option value="Misc|Small|5">Small (5kg)</option>
+                    <option value="Misc|Large|25">Large (25kg)</option>
+                </optgroup>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Weight (kg)</label>
+            <input type="number" id="weight" step="0.1" min="0" placeholder="Enter weight">
+        </div>
+
+        <div class="form-group hidden" id="route-group">
+            <label>Route</label>
+            <div class="route-btns">
+                <div class="route-btn" onclick="setRoute('sold')">Sold</div>
+                <div class="route-btn" onclick="setRoute('recycled')">Recycled</div>
+                <div class="route-btn" onclick="setRoute('binned')">Binned</div>
+            </div>
+            <input type="hidden" id="route-value">
+        </div>
+
+        <div class="form-group">
+            <label>Description (optional)</label>
+            <input type="text" id="description" placeholder="e.g. Brown leather, scratches">
+        </div>
+
+        <button class="submit-btn submit-in" id="save-btn" onclick="saveEntry()">Save IN</button>
+    </div>
+
+    <!-- Recent History -->
+    <div class="card">
+        <h2 style="font-size:1.1rem; margin-bottom:0.75rem;">Recent Entries</h2>
+        <div class="history-list" id="history-list">
+            <p style="color:#999; text-align:center; padding:1rem;">No entries yet</p>
+        </div>
+        <button class="export-btn" onclick="exportCSV()">📥 Export CSV</button>
+    </div>
+
+</div>
+
+<script>
+// Carbon factors
+const CARBON = {
+    furniture: { diversion: 0.5, avoided: 1.5 },
+    clothes: { diversion: 0.3, avoided: 3.5 },
+    books: { diversion: 0.2, avoided: 0.8 },
+    bric: { diversion: 0.4, avoided: 1.0 },
+    electrical: { diversion: 0.5, avoided: 4.5 },
+    mattress: { diversion: 0.6, avoided: 2.0 },
+    bedframe: { diversion: 0.5, avoided: 1.5 }
+};
+
+let currentMode = 'in';
+let transactions = JSON.parse(localStorage.getItem('wasteLedger') || '[]');
+
+// Init
+document.getElementById('entry-date').valueAsDate = new Date();
+updateDashboard();
+renderHistory();
+
+function setMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-btn')[0].className = 'mode-btn' + (mode === 'in' ? ' active-in' : '');
+    document.querySelectorAll('.mode-btn')[1].className = 'mode-btn' + (mode === 'out' ? ' active-out' : '');
+    
+    document.getElementById('dash-in').classList.toggle('hidden', mode !== 'in');
+    document.getElementById('dash-out').classList.toggle('hidden', mode !== 'out');
+    document.getElementById('route-group').classList.toggle('hidden', mode !== 'out');
+    
+    const btn = document.getElementById('save-btn');
+    btn.textContent = mode === 'in' ? 'Save IN' : 'Save OUT';
+    btn.className = 'submit-btn ' + (mode === 'in' ? 'submit-in' : 'submit-out');
+    
+    // Clear route selection
+    if (mode === 'in') {
+        setRoute('');
+    }
+}
+
+function updateSubcats() {
+    const main = document.getElementById('main-cat').value;
+    const furn = document.getElementById('furniture-picker');
+    const weight = document.getElementById('weight');
+    
+    if (main === 'furniture') {
+        furn.classList.remove('hidden');
+        weight.readOnly = true;
+        weight.placeholder = "Auto-filled";
+    } else {
+        furn.classList.add('hidden');
+        document.getElementById('furniture-type').value = '';
+        weight.readOnly = false;
+        weight.placeholder = "Enter weight (kg)";
+        weight.value = '';
+    }
+}
+
+function autoWeight() {
+    const val = document.getElementById('furniture-type').value;
+    if (!val) return;
+    const parts = val.split('|');
+    document.getElementById('weight').value = parts[2];
+}
+
+function setRoute(route) {
+    document.getElementById('route-value').value = route;
+    document.querySelectorAll('.route-btn').forEach((btn, idx) => {
+        btn.className = 'route-btn';
+        const routes = ['sold','recycled','binned'];
+        if (route === routes[idx]) {
+            btn.classList.add('selected-' + route);
+        }
+    });
+}
+
+function saveEntry() {
+    const date = document.getElementById('entry-date').value;
+    const mainCat = document.getElementById('main-cat').value;
+    const furnVal = document.getElementById('furniture-type').value;
+    const weight = parseFloat(document.getElementById('weight').value);
+    const desc = document.getElementById('description').value;
+    const route = document.getElementById('route-value').value;
+    
+    if (!date || !mainCat || !weight || weight <= 0) {
+        alert('Please fill in date, category, and weight');
+        return;
+    }
+    if (currentMode === 'out' && !route) {
+        alert('Please select Sold, Recycled, or Binned');
+        return;
+    }
+    
+    let subCat = '', type = '';
+    if (mainCat === 'furniture' && furnVal) {
+        const parts = furnVal.split('|');
+        subCat = parts[0];
+        type = parts[1];
+    } else {
+        subCat = mainCat;
+    }
+    
+    // Determine carbon factor category
+    let carbonKey = mainCat;
+    if (subCat === 'Mattress' || subCat === 'Bedframe') carbonKey = subCat.toLowerCase();
+    
+    const entry = {
+        id: Date.now(),
+        date,
+        direction: currentMode,
+        mainCat,
+        subCat,
+        type,
+        weight,
+        route: currentMode === 'out' ? route : null,
+        desc,
+        carbonKey
+    };
+    
+    transactions.unshift(entry);
+    localStorage.setItem('wasteLedger', JSON.stringify(transactions));
+    
+    // Reset form partially
+    document.getElementById('furniture-type').value = '';
+    document.getElementById('weight').value = '';
+    document.getElementById('description').value = '';
+    setRoute('');
+    
+    updateDashboard();
+    renderHistory();
+}
+
+function updateDashboard() {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const inToday = transactions.filter(t => t.direction === 'in' && t.date === today);
+    const outToday = transactions.filter(t => t.direction === 'out' && t.date === today);
+    
+    document.getElementById('in-today-count').textContent = inToday.length;
+    document.getElementById('in-today-kg').textContent = inToday.reduce((a,b) => a + b.weight, 0).toFixed(1);
+    
+    document.getElementById('out-today-count').textContent = outToday.length;
+    document.getElementById('out-today-kg').textContent = outToday.reduce((a,b) => a + b.weight, 0).toFixed(1);
+    document.getElementById('sold-today').textContent = outToday.filter(t => t.route === 'sold').reduce((a,b) => a + b.weight, 0).toFixed(1);
+    document.getElementById('recycled-today').textContent = outToday.filter(t => t.route === 'recycled').reduce((a,b) => a + b.weight, 0).toFixed(1);
+    document.getElementById('binned-today').textContent = outToday.filter(t => t.route === 'binned').reduce((a,b) => a + b.weight, 0).toFixed(1);
+    
+    // All time carbon
+    const totalIn = transactions.filter(t => t.direction === 'in').reduce((a,b) => a + b.weight, 0);
+    const totalBinned = transactions.filter(t => t.direction === 'out' && t.route === 'binned').reduce((a,b) => a + b.weight, 0);
+    const totalSold = transactions.filter(t => t.direction === 'out' && t.route === 'sold').reduce((a,b) => a + b.weight, 0);
+    
+    let diversion = 0;
+    let avoided = 0;
+    
+    // Calculate properly by item
+    transactions.filter(t => t.direction === 'in').forEach(t => {
+        const factor = CARBON[t.carbonKey]?.diversion || 0.5;
+        diversion += t.weight * factor;
+    });
+    transactions.filter(t => t.direction === 'out' && t.route === 'binned').forEach(t => {
+        const factor = CARBON[t.carbonKey]?.diversion || 0.5;
+        diversion -= t.weight * factor;
+    });
+    transactions.filter(t => t.direction === 'out' && t.route === 'sold').forEach(t => {
+        const factor = CARBON[t.carbonKey]?.avoided || 1.0;
+        avoided += t.weight * factor;
+    });
+    
+    document.getElementById('diversion-total').textContent = Math.max(0, diversion).toFixed(1) + ' kg CO₂e';
+    document.getElementById('avoided-total').textContent = Math.max(0, avoided).toFixed(1) + ' kg CO₂e';
+}
+
+function renderHistory() {
+    const list = document.getElementById('history-list');
+    if (transactions.length === 0) {
+        list.innerHTML = '<p style="color:#999; text-align:center; padding:1rem;">No entries yet</p>';
+        return;
+    }
+    
+    list.innerHTML = transactions.slice(0, 50).map(t => {
+        let badge = '';
+        let label = '';
+        if (t.direction === 'in') {
+            badge = 'badge-in';
+            label = 'IN';
+        } else {
+            badge = 'badge-' + t.route;
+            label = t.route;
+        }
+        const typeStr = t.type ? ` (${t.type})` : '';
+        return `
+            <div class="history-item">
+                <div>
+                    <div style="font-weight:600;">${t.subCat}${typeStr}</div>
+                    <div class="history-meta">${t.date} ${t.desc ? '· ' + t.desc : ''}</div>
+                </div>
+                <div style="text-align:right;">
+                    <span class="badge ${badge}">${label}</span>
+                    <div class="history-weight">${t.weight}kg</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function exportCSV() {
+    if (transactions.length === 0) {
+        alert('No data to export');
+        return;
+    }
+    const headers = ['Date','Direction','Category','Type','Weight(kg)','Route','Description'];
+    const rows = transactions.map(t => [
+        t.date, t.direction, t.subCat, t.type || '', t.weight, t.route || '', t.desc || ''
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(x => `"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+    
+    const blob = new Blob([csv], {type: 'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `waste-ledger-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+</html>
